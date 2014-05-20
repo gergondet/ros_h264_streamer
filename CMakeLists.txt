@@ -1,7 +1,31 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(ros_h264_streamer)
 
-find_package(catkin REQUIRED COMPONENTS roscpp image_transport)
+find_package(catkin REQUIRED COMPONENTS roscpp image_transport cv_bridge)
 include_directories(${catkin_INCLUDE_DIRS})
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 catkin_package()
+
+set(ros_h264_streamer_src
+  src/h264_encoder.cpp
+  src/h264_decoder.cpp
+)
+
+add_library(ros_h264_streamer ${ros_h264_streamer_src})
+target_link_libraries(ros_h264_streamer ${catkin_LIBRARIES} x264 avcodec avutil swscale)
+
+add_executable(testEncoderDecoder test/testEncoderDecoder.cpp)
+target_link_libraries(testEncoderDecoder ros_h264_streamer ${catkin_LIBRARIES})
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+)
+
+install(TARGETS ros_h264_streamer
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+)
