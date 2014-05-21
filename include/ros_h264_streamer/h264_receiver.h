@@ -21,7 +21,7 @@ public:
     : width(640), height(480),
       udp(true), server(true),
       port(10000), host("127.0.0.1"),
-      publish_topic("/ros_h264_receiver/rgb/image_raw"), frame_id("/ros_h264_receiver_rgb_optical_frame")
+      publish(false), publish_topic("/ros_h264_receiver/rgb/image_raw"), frame_id("/ros_h264_receiver_rgb_optical_frame")
 
     {}
     int width;
@@ -30,6 +30,7 @@ public:
     bool server;
     short port;
     std::string host;
+    bool publish;
     std::string publish_topic;
     std::string frame_id;
   };

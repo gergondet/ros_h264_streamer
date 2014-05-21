@@ -17,6 +17,7 @@ int main(int argc, char * argv[])
   conf.server = false;
   conf.port = 10000;
   conf.host = "127.0.0.1";
+  conf.publish = true;
   conf.publish_topic = "/ros_h264_receiver/rgb/image_raw";
   conf.frame_id = "/ros_h264_receiver_rgb_optical_frame";
 

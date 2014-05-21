@@ -25,7 +25,7 @@ struct H264ReceiverNetImpl
     frame_data_size(0), full_frame_data_size(0), frame_data(0),
     has_new_data(false), img(new sensor_msgs::Image),
     decoder(conf.width, conf.height),
-    it(nh), pub()
+    publish(conf.publish), it(nh), pub()
   {
     request_data = new char[ros_h264_streamer_private::_request_size];
     chunk_data = new unsigned char[ros_h264_streamer_private::_video_chunk_size];
@@ -36,9 +36,12 @@ struct H264ReceiverNetImpl
     CleanChunkData();
     CleanFrameData();
 
-    img->header.seq = 0;
-    img->header.frame_id = conf.frame_id;
-    pub = it.advertise(conf.publish_topic, 1);
+    if(publish)
+    {
+      img->header.seq = 0;
+      img->header.frame_id = conf.frame_id;
+      pub = it.advertise(conf.publish_topic, 1);
+    }
   }
 
   ~H264ReceiverNetImpl()
@@ -80,9 +83,12 @@ struct H264ReceiverNetImpl
       has_new_data = true;
       frame_data_size = 0;
       CleanFrameData();
-      img->header.seq++;
-      img->header.stamp = ros::Time::now();
-      pub.publish(*img);
+      if(publish)
+      {
+        img->header.seq++;
+        img->header.stamp = ros::Time::now();
+        pub.publish(*img);
+      }
     }
     CleanChunkData();
   }
@@ -112,6 +118,7 @@ struct H264ReceiverNetImpl
   sensor_msgs::ImagePtr img;
   H264Decoder decoder;
 
+  bool publish;
   image_transport::ImageTransport it;
   image_transport::Publisher pub;
 };
