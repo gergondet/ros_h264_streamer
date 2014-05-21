@@ -19,7 +19,7 @@ namespace ros_h264_streamer
 struct H264StreamerNetImpl
 {
   H264StreamerNetImpl()
-  : io_service_(), io_service_th_(0), request_data(0), chunk_data(0)
+  : io_service(), io_service_th(0), request_data(0), chunk_data(0)
   {
     request_data = new char[ros_h264_streamer_private::_request_size];
     chunk_data = new unsigned char[ros_h264_streamer_private::_video_chunk_size];
@@ -29,11 +29,11 @@ struct H264StreamerNetImpl
 
   ~H264StreamerNetImpl()
   {
-    io_service_.stop();
-    if(io_service_th_)
+    io_service.stop();
+    if(io_service_th)
     {
-      io_service_th_->join();
-      delete io_service_th_;
+      io_service_th->join();
+      delete io_service_th;
     }
     delete[] request_data;
     delete[] chunk_data;
@@ -41,7 +41,7 @@ struct H264StreamerNetImpl
 
   void StartIOService()
   {
-    io_service_th_ = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service_));
+    io_service_th = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
   }
 
   void HandleNewData(H264EncoderResult & res)
@@ -51,7 +51,7 @@ struct H264StreamerNetImpl
     do
     {
       CleanChunkData();
-      data_size = std::min(res.frame_size, ros_h264_streamer_private::_video_chunk_size -1 );
+      data_size = std::min(res.frame_size + 1, ros_h264_streamer_private::_video_chunk_size -1 );
       chunk_data[0] = chunkID;
       std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(ros_h264_streamer_private::_video_chunk_size - 1)], data_size);
       SendData(data_size);
@@ -63,8 +63,8 @@ struct H264StreamerNetImpl
 
   virtual void SendData(int frame_size) = 0;
 
-  boost::asio::io_service io_service_;
-  boost::thread * io_service_th_;
+  boost::asio::io_service io_service;
+  boost::thread * io_service_th;
 
   char * request_data;
   void CleanRequestData() { memset(request_data, 0, ros_h264_streamer_private::_request_size); }
@@ -77,7 +77,7 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
   H264StreamerUDPServer(short port)
   : socket(0), has_client(false), client_endpoint()
   {
-    socket = new udp::socket(io_service_);
+    socket = new udp::socket(io_service);
     socket->open(udp::v4());
     socket->bind(udp::endpoint(udp::v4(), port));
     socket->async_receive_from(
@@ -126,7 +126,7 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
         boost::asio::placeholders::error,
         boost::asio::placeholders::bytes_transferred));
   }
-    
+
 private:
   udp::socket * socket;
   bool has_client;
@@ -138,11 +138,30 @@ struct H264StreamerUDPClient : public H264StreamerNetImpl
 {
   H264StreamerUDPClient(const std::string & host, short port)
   {
+    udp::resolver resolver(io_service);
+    std::stringstream ss;
+    ss << port;
+    udp::resolver::query query(udp::v4(), host, ss.str());
+    server_endpoint = *resolver.resolve(query);
+
+    socket = new udp::socket(io_service);
+    socket->open(udp::v4());
   }
 
   void SendData(int frame_size)
   {
+    boost::system::error_code error;
+    socket->send_to(
+      boost::asio::buffer(chunk_data, frame_size),
+      server_endpoint, 0, error);
+    if(error)
+    {
+      std::cerr << "[ros_h264_streamer] H264Streamer UDP client got the error while sending data: " << std::endl << error.message() << std::endl;
+    }
   }
+private:
+  udp::socket * socket;
+  udp::endpoint server_endpoint;
 };
 
 struct H264StreamerTCPServer : public H264StreamerNetImpl
@@ -203,6 +222,7 @@ public:
   {
     sub.shutdown();
     delete encoder;
+    delete net_impl;
   }
 
   void imageCallback(const sensor_msgs::ImageConstPtr & msg)

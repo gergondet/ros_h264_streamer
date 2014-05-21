@@ -12,6 +12,7 @@ set(ros_h264_streamer_src
   src/h264_encoder.cpp
   src/h264_decoder.cpp
   src/h264_streamer.cpp
+  src/h264_receiver.cpp
 )
 
 add_library(ros_h264_streamer ${ros_h264_streamer_src})
@@ -22,6 +23,15 @@ target_link_libraries(testEncoderDecoder ros_h264_streamer ${catkin_LIBRARIES})
 
 add_executable(testUDPServerStreamer test/testUDPServerStreamer.cpp)
 target_link_libraries(testUDPServerStreamer ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testUDPClientStreamer test/testUDPClientStreamer.cpp)
+target_link_libraries(testUDPClientStreamer ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testUDPServerReceiver test/testUDPServerReceiver.cpp)
+target_link_libraries(testUDPServerReceiver ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testUDPClientReceiver test/testUDPClientReceiver.cpp)
+target_link_libraries(testUDPClientReceiver ros_h264_streamer ${catkin_LIBRARIES})
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}

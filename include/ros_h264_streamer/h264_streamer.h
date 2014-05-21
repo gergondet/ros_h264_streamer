@@ -16,13 +16,13 @@ class H264Streamer
 public:
   struct Config
   {
-    Config() 
-    : use_udp(true), is_server(true), 
+    Config()
+    : use_udp(true), is_server(true),
       port(10000), host("127.0.0.1"),
       camera_topic("/camera/rgb/image_raw")
     {}
     bool use_udp;
-    bool is_server; 
+    bool is_server;
     short port;
     std::string host;
     std::string camera_topic;

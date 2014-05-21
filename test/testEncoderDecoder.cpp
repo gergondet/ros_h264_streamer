@@ -32,8 +32,9 @@ int main(int argc, char * argv[])
 
   sensor_msgs::ImagePtr out(new sensor_msgs::Image);
   ros_h264_streamer::H264Decoder decoder(msg->width, msg->height);
+
   ros::Time before_decoding = ros::Time::now();
-  int len = decoder.decode(res.frame_size, res.frame_data, out); 
+  int len = decoder.decode(res.frame_size, res.frame_data, out);
   ros::Time after_decoding = ros::Time::now();
 
   std::cout << "Image decoded, decoded image size is: " << out->width << "x" << out->height << std::endl;
