@@ -39,9 +39,18 @@ struct H264StreamerNetImpl
     delete[] chunk_data;
   }
 
+  void IOServiceThread()
+  {
+    while(ros::ok())
+    {
+      io_service.run();
+      io_service.reset();
+    }
+  }
+
   void StartIOService()
   {
-    io_service_th = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
+    io_service_th = new boost::thread(boost::bind(&H264StreamerNetImpl::IOServiceThread, this));
   }
 
   void HandleNewData(H264EncoderResult & res)
@@ -51,14 +60,14 @@ struct H264StreamerNetImpl
     do
     {
       CleanChunkData();
-      data_size = std::min(res.frame_size + 1, ros_h264_streamer_private::_video_chunk_size -1 );
+      data_size = std::min(res.frame_size + 1, ros_h264_streamer_private::_video_chunk_size );
       chunk_data[0] = chunkID;
       std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(ros_h264_streamer_private::_video_chunk_size - 1)], data_size);
       SendData(data_size);
       chunkID++;
       res.frame_size -= data_size;
     }
-    while(data_size == ros_h264_streamer_private::_video_chunk_size - 1);
+    while(data_size == ros_h264_streamer_private::_video_chunk_size);
   }
 
   virtual void SendData(int frame_size) = 0;
@@ -167,23 +176,128 @@ private:
 struct H264StreamerTCPServer : public H264StreamerNetImpl
 {
   H264StreamerTCPServer(short port)
+  : acceptor(io_service, tcp::endpoint(tcp::v4(), port)),
+    socket(0)
   {
+    AcceptConnection();
+  }
+
+  ~H264StreamerTCPServer()
+  {
+    acceptor.close();
+    if(socket)
+    {
+      socket->close();
+    }
+    delete socket;
   }
 
   void SendData(int frame_size)
   {
+    if(socket)
+    {
+      socket->async_send(
+        boost::asio::buffer(chunk_data, frame_size),
+        boost::bind(&H264StreamerTCPServer::handle_send, this,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+    }
   }
+
+  void AcceptConnection()
+  {
+    tcp::socket * nsocket = new tcp::socket(io_service);
+    acceptor.async_accept(*nsocket,
+      boost::bind(&H264StreamerTCPServer::handle_accept, this, nsocket, boost::asio::placeholders::error));
+  }
+
+  void handle_accept(tcp::socket * socket_in, const boost::system::error_code& error)
+  {
+    delete socket;
+    if(!error)
+    {
+      socket = socket_in;
+    }
+    AcceptConnection();
+  }
+
+  void handle_send(const boost::system::error_code & error, size_t bytes_send)
+  {
+    if(error)
+    {
+      socket->close();
+      delete socket;
+      socket = 0;
+    }
+  }
+private:
+  tcp::acceptor acceptor;
+  tcp::socket * socket;
 };
 
 struct H264StreamerTCPClient : public H264StreamerNetImpl
 {
   H264StreamerTCPClient(const std::string & host, short port)
+  : socket(0), server_endpoint(), ready(false)
   {
+    tcp::resolver resolver(io_service);
+    std::stringstream ss;
+    ss << port;
+    tcp::resolver::query query(tcp::v4(), host, ss.str());
+    server_endpoint = *resolver.resolve(query);
+
+    ConnectToServer();
+  }
+
+  void ConnectToServer()
+  {
+    delete socket;
+    socket = new tcp::socket(io_service);
+    socket->async_connect(server_endpoint,
+      boost::bind(&H264StreamerTCPClient::handle_connect, this,
+        boost::asio::placeholders::error));
   }
 
   void SendData(int frame_size)
   {
+    if(ready)
+    {
+      socket->async_send(
+        boost::asio::buffer(chunk_data, frame_size), 0,
+        boost::bind(&H264StreamerTCPClient::handle_send, this,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+    }
   }
+
+  void handle_connect(const boost::system::error_code & error)
+  {
+    if(!error)
+    {
+      ready = true;
+    }
+    else
+    {
+      ready = false;
+      sleep(1);
+      ConnectToServer();
+    }
+  }
+
+  void handle_send(const boost::system::error_code & error, size_t bytes_send)
+  {
+    if(error)
+    {
+      ready = false;
+      std::cerr << "[ros_h264_streamer] H264Streamer TCP client got error when sending: " << std::endl << error.message() << std::endl;
+      std::cerr << "[ros_h264_streamer] Trying to reconnect" << std::endl;
+      ConnectToServer();
+    }
+  }
+private:
+  tcp::socket * socket;
+  tcp::endpoint server_endpoint;
+  bool ready;
 };
 
 struct H264StreamerImpl

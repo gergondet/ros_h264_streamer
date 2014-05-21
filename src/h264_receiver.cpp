@@ -66,9 +66,12 @@ struct H264ReceiverNetImpl
     if(frame_data_size > full_frame_data_size)
     {
       std::cerr << "[ros_h264_streamer] H264Receiver needs to re-allocate frame data" << std::endl;
-      delete[] frame_data;
-      frame_data = new uint8_t[2*frame_data_size];
+      uint8_t * old_frame_data = frame_data;
+      uint8_t * new_frame_data = new uint8_t[2*frame_data_size];
+      memcpy(new_frame_data, frame_data, full_frame_data_size);
       full_frame_data_size = 2*frame_data_size;
+      frame_data = new_frame_data;
+      delete[] old_frame_data;
     }
     memcpy(&frame_data[chunkID*(ros_h264_streamer_private::_video_chunk_size-1)], &chunk_data[1], bytes_recvd - 1);
     if(bytes_recvd < ros_h264_streamer_private::_video_chunk_size)
@@ -244,17 +247,132 @@ private:
 struct H264ReceiverTCPServer : public H264ReceiverNetImpl
 {
   H264ReceiverTCPServer(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : H264ReceiverNetImpl(conf, nh)
+  : H264ReceiverNetImpl(conf, nh),
+    socket(0), acceptor(io_service, tcp::endpoint(tcp::v4(), conf.port))
   {
+    AcceptConnection();
   }
+
+  ~H264ReceiverTCPServer()
+  {
+    acceptor.close();
+    if(socket)
+    {
+      socket->close();
+    }
+    delete socket;
+  }
+
+  void ReceiveData()
+  {
+    if(socket)
+    {
+      socket->async_receive(
+        boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size),
+        boost::bind(&H264ReceiverTCPServer::handle_receive, this,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+    }
+  }
+
+  void AcceptConnection()
+  {
+    tcp::socket * nsocket = new tcp::socket(io_service);
+    acceptor.async_accept(*nsocket,
+      boost::bind(&H264ReceiverTCPServer::handle_accept, this, nsocket, boost::asio::placeholders::error));
+  }
+
+  void handle_accept(tcp::socket * socket_in, const boost::system::error_code& error)
+  {
+    delete socket;
+    if(!error)
+    {
+      socket = socket_in;
+      ReceiveData();
+    }
+    AcceptConnection();
+  }
+
+  void handle_receive(const boost::system::error_code & error, size_t bytes_recvd)
+  {
+    if(!error && bytes_recvd > 0)
+    {
+      HandleVideoChunk(bytes_recvd);
+      ReceiveData();
+    }
+    else if(error)
+    {
+      std::cerr << "[ros_h264_streamer] H264Receiver TCP server got the error while receiving data: " << std::endl << error.message() << std::endl;
+    }
+  }
+
+private:
+  tcp::socket * socket;
+  tcp::acceptor acceptor;
 };
 
 struct H264ReceiverTCPClient : public H264ReceiverNetImpl
 {
   H264ReceiverTCPClient(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : H264ReceiverNetImpl(conf, nh)
+  : H264ReceiverNetImpl(conf, nh), socket(0)
   {
+    tcp::resolver resolver(io_service);
+    std::stringstream ss;
+    ss << conf.port;
+    tcp::resolver::query query(tcp::v4(), conf.host, ss.str());
+    server_endpoint = *resolver.resolve(query);
+
+    ConnectToServer();
   }
+
+  void ConnectToServer()
+  {
+    delete socket;
+    socket = new tcp::socket(io_service);
+    socket->async_connect(server_endpoint,
+      boost::bind(&H264ReceiverTCPClient::handle_connect, this,
+        boost::asio::placeholders::error));
+  }
+
+  void ReceiveData()
+  {
+    socket->async_receive(
+      boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size),
+      boost::bind(&H264ReceiverTCPClient::handle_receive, this,
+        boost::asio::placeholders::error,
+        boost::asio::placeholders::bytes_transferred));
+  }
+
+  void handle_connect(const boost::system::error_code & error)
+  {
+    if(!error)
+    {
+      ReceiveData();
+    }
+    else
+    {
+      sleep(1);
+      ConnectToServer();
+    }
+  }
+
+  void handle_receive(const boost::system::error_code & error, size_t bytes_recvd)
+  {
+    if(!error && bytes_recvd > 0)
+    {
+      HandleVideoChunk(bytes_recvd);
+      ReceiveData();
+    }
+    else if(error)
+    {
+      std::cerr << "[ros_h264_streamer] H264Receiver TCP client got the error while receiving data: " << std::endl << error.message() << std::endl;
+      ConnectToServer();
+    }
+  }
+
+private:
+  tcp::socket * socket;
+  tcp::endpoint server_endpoint;
 };
 
 struct H264ReceiverImpl

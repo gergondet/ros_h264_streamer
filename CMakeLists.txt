@@ -33,6 +33,18 @@ target_link_libraries(testUDPServerReceiver ros_h264_streamer ${catkin_LIBRARIES
 add_executable(testUDPClientReceiver test/testUDPClientReceiver.cpp)
 target_link_libraries(testUDPClientReceiver ros_h264_streamer ${catkin_LIBRARIES})
 
+add_executable(testTCPServerStreamer test/testTCPServerStreamer.cpp)
+target_link_libraries(testTCPServerStreamer ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testTCPClientStreamer test/testTCPClientStreamer.cpp)
+target_link_libraries(testTCPClientStreamer ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testTCPServerReceiver test/testTCPServerReceiver.cpp)
+target_link_libraries(testTCPServerReceiver ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testTCPClientReceiver test/testTCPClientReceiver.cpp)
+target_link_libraries(testTCPClientReceiver ros_h264_streamer ${catkin_LIBRARIES})
+
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
