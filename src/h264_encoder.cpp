@@ -46,7 +46,7 @@ public:
     x264_encoder_close(m_encoder);
   }
 
-  H264EncoderResult encode(sensor_msgs::ImagePtr & img, uint64_t pts)
+  H264EncoderResult encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts)
   {
     x264_nal_t* nals;
     int i_nals;
@@ -114,7 +114,7 @@ H264Encoder::H264Encoder(int width, int height, int fps, const std::string & enc
 {
 }
 
-H264EncoderResult H264Encoder::encode(sensor_msgs::ImagePtr & img, uint64_t pts)
+H264EncoderResult H264Encoder::encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts)
 {
   return impl->encode(img, pts);
 }

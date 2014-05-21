@@ -11,6 +11,7 @@ catkin_package()
 set(ros_h264_streamer_src
   src/h264_encoder.cpp
   src/h264_decoder.cpp
+  src/h264_streamer.cpp
 )
 
 add_library(ros_h264_streamer ${ros_h264_streamer_src})
@@ -18,6 +19,9 @@ target_link_libraries(ros_h264_streamer ${catkin_LIBRARIES} x264 avcodec avutil 
 
 add_executable(testEncoderDecoder test/testEncoderDecoder.cpp)
 target_link_libraries(testEncoderDecoder ros_h264_streamer ${catkin_LIBRARIES})
+
+add_executable(testUDPServerStreamer test/testUDPServerStreamer.cpp)
+target_link_libraries(testUDPServerStreamer ros_h264_streamer ${catkin_LIBRARIES})
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}

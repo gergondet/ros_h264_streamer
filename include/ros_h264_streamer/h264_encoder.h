@@ -24,7 +24,7 @@ class H264Encoder
 public:
   H264Encoder(int width, int height, int fps, const std::string & encoding);
 
-  H264EncoderResult encode(sensor_msgs::ImagePtr & img, uint64_t pts = 0);
+  H264EncoderResult encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts = 0);
 private:
   boost::shared_ptr<H264EncoderImpl> impl;
 };
