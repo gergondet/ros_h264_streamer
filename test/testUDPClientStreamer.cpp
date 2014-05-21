@@ -7,8 +7,8 @@ int main(int argc, char * argv[])
   ros::NodeHandle nh;
 
   ros_h264_streamer::H264Streamer::Config conf;
-  conf.use_udp = true;
-  conf.is_server = false;
+  conf.udp = true;
+  conf.server = false;
   conf.port = 10000;
   conf.host = "127.0.0.1";
   conf.camera_topic = "/camera/rgb/image_raw";

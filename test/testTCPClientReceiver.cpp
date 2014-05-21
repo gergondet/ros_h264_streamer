@@ -13,8 +13,8 @@ int main(int argc, char * argv[])
   ros_h264_streamer::H264Receiver::Config conf;
   conf.width = 640;
   conf.height = 480;
-  conf.use_udp = false;
-  conf.is_server = false;
+  conf.udp = false;
+  conf.server = false;
   conf.port = 10000;
   conf.host = "127.0.0.1";
   conf.publish_topic = "/ros_h264_receiver/rgb/image_raw";

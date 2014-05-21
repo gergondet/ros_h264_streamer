@@ -381,9 +381,9 @@ public:
   H264ReceiverImpl(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : net_impl(0)
   {
-    if(conf.use_udp)
+    if(conf.udp)
     {
-      if(conf.is_server)
+      if(conf.server)
       {
         net_impl = new H264ReceiverUDPServer(conf, nh);
       }
@@ -394,7 +394,7 @@ public:
     }
     else
     {
-      if(conf.is_server)
+      if(conf.server)
       {
         net_impl = new H264ReceiverTCPServer(conf, nh);
       }

@@ -19,15 +19,15 @@ public:
   {
     Config()
     : width(640), height(480),
-      use_udp(true), is_server(true),
+      udp(true), server(true),
       port(10000), host("127.0.0.1"),
       publish_topic("/ros_h264_receiver/rgb/image_raw"), frame_id("/ros_h264_receiver_rgb_optical_frame")
 
     {}
     int width;
     int height;
-    bool use_udp;
-    bool is_server;
+    bool udp;
+    bool server;
     short port;
     std::string host;
     std::string publish_topic;

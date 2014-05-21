@@ -307,9 +307,9 @@ public:
   : nh(nh), it(nh), conf(conf), net_impl(0), encoder(0)
   {
     sub = it.subscribe(conf.camera_topic, 1, &H264StreamerImpl::imageCallback, this);
-    if(conf.use_udp)
+    if(conf.udp)
     {
-      if(conf.is_server)
+      if(conf.server)
       {
         net_impl = new H264StreamerUDPServer(conf.port);
       }
@@ -320,7 +320,7 @@ public:
     }
     else
     {
-      if(conf.is_server)
+      if(conf.server)
       {
         net_impl = new H264StreamerTCPServer(conf.port);
       }

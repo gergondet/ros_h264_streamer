@@ -17,12 +17,12 @@ public:
   struct Config
   {
     Config()
-    : use_udp(true), is_server(true),
+    : udp(true), server(true),
       port(10000), host("127.0.0.1"),
       camera_topic("/camera/rgb/image_raw")
     {}
-    bool use_udp;
-    bool is_server;
+    bool udp;
+    bool server;
     short port;
     std::string host;
     std::string camera_topic;
