@@ -5,7 +5,7 @@ namespace po = boost::program_options;
 
 int main(int argc, char * argv[])
 {
-  ros::init(argc, argv, "ros_h264_streamer_test_udp_server_streamer");
+  ros::init(argc, argv, "ros_h264_streamer_test_streamer");
   ros::NodeHandle nh;
 
   ros_h264_streamer::H264Streamer::Config conf;
