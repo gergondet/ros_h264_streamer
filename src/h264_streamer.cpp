@@ -19,10 +19,15 @@ namespace ros_h264_streamer
 struct H264StreamerNetImpl
 {
   H264StreamerNetImpl()
-  : io_service(), io_service_th(0), request_data(0), chunk_data(0)
+  : io_service(), io_service_th(0), request_data(0), chunk_data_size(0), chunk_data(0)
   {
+  }
+
+  void InitBuffers()
+  {
+    SetChunkDataSize();
     request_data = new char[ros_h264_streamer_private::_request_size];
-    chunk_data = new unsigned char[ros_h264_streamer_private::_video_chunk_size];
+    chunk_data = new unsigned char[chunk_data_size];
     CleanRequestData();
     CleanChunkData();
   }
@@ -38,6 +43,8 @@ struct H264StreamerNetImpl
     delete[] request_data;
     delete[] chunk_data;
   }
+
+  virtual void SetChunkDataSize() = 0;
 
   void IOServiceThread()
   {
@@ -60,14 +67,14 @@ struct H264StreamerNetImpl
     do
     {
       CleanChunkData();
-      data_size = std::min(res.frame_size + 1, ros_h264_streamer_private::_video_chunk_size );
+      data_size = std::min(res.frame_size + 1, chunk_data_size );
       chunk_data[0] = chunkID;
-      std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(ros_h264_streamer_private::_video_chunk_size - 1)], data_size);
+      std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(chunk_data_size - 1)], data_size);
       SendData(data_size);
       chunkID++;
       res.frame_size -= data_size;
     }
-    while(data_size == ros_h264_streamer_private::_video_chunk_size);
+    while(data_size == chunk_data_size);
   }
 
   virtual void SendData(int frame_size) = 0;
@@ -77,8 +84,9 @@ struct H264StreamerNetImpl
 
   char * request_data;
   void CleanRequestData() { memset(request_data, 0, ros_h264_streamer_private::_request_size); }
+  int chunk_data_size;
   unsigned char * chunk_data;
-  void CleanChunkData() { memset(chunk_data, 0, ros_h264_streamer_private::_video_chunk_size); }
+  void CleanChunkData() { memset(chunk_data, 0, chunk_data_size); }
 };
 
 struct H264StreamerUDPServer : public H264StreamerNetImpl
@@ -100,6 +108,11 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
   {
     socket->close();
     delete socket;
+  }
+
+  void SetChunkDataSize()
+  {
+    chunk_data_size = ros_h264_streamer_private::_udp_video_chunk_size;
   }
 
   void SendData(int frame_size)
@@ -157,6 +170,11 @@ struct H264StreamerUDPClient : public H264StreamerNetImpl
     socket->open(udp::v4());
   }
 
+  void SetChunkDataSize()
+  {
+    chunk_data_size = ros_h264_streamer_private::_udp_video_chunk_size;
+  }
+
   void SendData(int frame_size)
   {
     boost::system::error_code error;
@@ -190,6 +208,11 @@ struct H264StreamerTCPServer : public H264StreamerNetImpl
       socket->close();
     }
     delete socket;
+  }
+
+  void SetChunkDataSize()
+  {
+    chunk_data_size = ros_h264_streamer_private::_tcp_video_chunk_size;
   }
 
   void SendData(int frame_size)
@@ -247,6 +270,11 @@ struct H264StreamerTCPClient : public H264StreamerNetImpl
     server_endpoint = *resolver.resolve(query);
 
     ConnectToServer();
+  }
+
+  void SetChunkDataSize()
+  {
+    chunk_data_size = ros_h264_streamer_private::_tcp_video_chunk_size;
   }
 
   void ConnectToServer()
@@ -329,6 +357,11 @@ public:
         net_impl = new H264StreamerTCPClient(conf.host, conf.port);
       }
     }
+  }
+
+  void Init()
+  {
+    net_impl->InitBuffers();
     net_impl->StartIOService();
   }
 
@@ -362,6 +395,7 @@ private:
 H264Streamer::H264Streamer(H264Streamer::Config & conf, ros::NodeHandle & nh)
 : impl(new H264StreamerImpl(conf, nh))
 {
+  impl->Init();
 }
 
 } // namespace ros_h264_streamer

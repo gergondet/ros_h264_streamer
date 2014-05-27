@@ -21,16 +21,20 @@ namespace ros_h264_streamer
 struct H264ReceiverNetImpl
 {
   H264ReceiverNetImpl(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : io_service(), io_service_th(0), request_data(0), chunk_data(0),
+  : io_service(), io_service_th(0), request_data(0), video_chunk_size(0), chunk_data(0),
     frame_data_size(0), full_frame_data_size(0), frame_data(0),
     has_new_data(false), img(new sensor_msgs::Image),
     decoder(conf.width, conf.height),
     publish(conf.publish), it(nh), pub()
   {
+  }
+
+  void InitBuffers(H264Receiver::Config & conf)
+  {
+    SetVideoChunkSize();
     request_data = new char[ros_h264_streamer_private::_request_size];
-    chunk_data = new unsigned char[ros_h264_streamer_private::_video_chunk_size];
+    chunk_data = new unsigned char[video_chunk_size];
     frame_data_size = 0;
-    full_frame_data_size = ros_h264_streamer_private::_video_chunk_size;
     frame_data = new uint8_t[full_frame_data_size];
     CleanRequestData();
     CleanChunkData();
@@ -57,6 +61,8 @@ struct H264ReceiverNetImpl
     delete[] frame_data;
   }
 
+  virtual void SetVideoChunkSize() = 0;
+
   void StartIOService()
   {
     io_service_th = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
@@ -76,14 +82,14 @@ struct H264ReceiverNetImpl
       frame_data = new_frame_data;
       delete[] old_frame_data;
     }
-    memcpy(&frame_data[chunkID*(ros_h264_streamer_private::_video_chunk_size-1)], &chunk_data[1], bytes_recvd - 1);
-    if(bytes_recvd < ros_h264_streamer_private::_video_chunk_size)
+    memcpy(&frame_data[chunkID*(video_chunk_size-1)], &chunk_data[1], bytes_recvd - 1);
+    if(bytes_recvd < video_chunk_size)
     {
-      decoder.decode(frame_data_size, frame_data, img);
+      int data_decoded = decoder.decode(frame_data_size, frame_data, img);
       has_new_data = true;
       frame_data_size = 0;
       CleanFrameData();
-      if(publish)
+      if(data_decoded > 0 && publish)
       {
         img->header.seq++;
         img->header.stamp = ros::Time::now();
@@ -108,7 +114,8 @@ struct H264ReceiverNetImpl
   char * request_data;
   void CleanRequestData() { memset(request_data, 0, ros_h264_streamer_private::_request_size); }
   unsigned char * chunk_data;
-  void CleanChunkData() { memset(chunk_data, 0, ros_h264_streamer_private::_video_chunk_size); }
+  int video_chunk_size;
+  void CleanChunkData() { memset(chunk_data, 0, video_chunk_size); }
 
   int frame_data_size;
   int full_frame_data_size;
@@ -133,7 +140,7 @@ struct H264ReceiverUDPServer : public H264ReceiverNetImpl
     socket->open(udp::v4());
     socket->bind(udp::endpoint(udp::v4(), conf.port));
     socket->async_receive_from(
-      boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size), client_endpoint,
+      boost::asio::buffer(chunk_data, video_chunk_size), client_endpoint,
       boost::bind(&H264ReceiverUDPServer::handle_receive_from, this,
         boost::asio::placeholders::error,
         boost::asio::placeholders::bytes_transferred));
@@ -143,6 +150,12 @@ struct H264ReceiverUDPServer : public H264ReceiverNetImpl
   {
     socket->close();
     delete socket;
+  }
+
+  void SetVideoChunkSize()
+  {
+    video_chunk_size = ros_h264_streamer_private::_udp_video_chunk_size;
+    full_frame_data_size = 3*video_chunk_size;
   }
 
   void handle_receive_from(const boost::system::error_code & error, size_t bytes_recvd)
@@ -156,7 +169,7 @@ struct H264ReceiverUDPServer : public H264ReceiverNetImpl
       std::cerr << "[ros_h264_streamer] H264Receiver UDP server got the error while receiving data: " << std::endl << error.message() << std::endl;
     }
     socket->async_receive_from(
-      boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size), client_endpoint,
+      boost::asio::buffer(chunk_data, video_chunk_size), client_endpoint,
       boost::bind(&H264ReceiverUDPServer::handle_receive_from, this,
         boost::asio::placeholders::error,
         boost::asio::placeholders::bytes_transferred));
@@ -184,6 +197,12 @@ struct H264ReceiverUDPClient : public H264ReceiverNetImpl
     SendVideoRequest();
   }
 
+  void SetVideoChunkSize()
+  {
+    video_chunk_size = ros_h264_streamer_private::_udp_video_chunk_size;
+    full_frame_data_size = 3*video_chunk_size;
+  }
+
   void SendVideoRequest()
   {
     std::string request_ = "get";
@@ -199,7 +218,7 @@ struct H264ReceiverUDPClient : public H264ReceiverNetImpl
   {
     timeout_timer.cancel();
     socket->async_receive_from(
-      boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size), client_endpoint,
+      boost::asio::buffer(chunk_data, video_chunk_size), client_endpoint,
       boost::bind(&H264ReceiverUDPClient::handle_receive_from, this,
         boost::asio::placeholders::error,
         boost::asio::placeholders::bytes_transferred));
@@ -260,6 +279,12 @@ struct H264ReceiverTCPServer : public H264ReceiverNetImpl
     AcceptConnection();
   }
 
+  void SetVideoChunkSize()
+  {
+    video_chunk_size = ros_h264_streamer_private::_tcp_video_chunk_size;
+    full_frame_data_size = 90*video_chunk_size;
+  }
+
   ~H264ReceiverTCPServer()
   {
     acceptor.close();
@@ -275,7 +300,7 @@ struct H264ReceiverTCPServer : public H264ReceiverNetImpl
     if(socket)
     {
       socket->async_receive(
-        boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size),
+        boost::asio::buffer(chunk_data, video_chunk_size),
         boost::bind(&H264ReceiverTCPServer::handle_receive, this,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred));
@@ -332,6 +357,12 @@ struct H264ReceiverTCPClient : public H264ReceiverNetImpl
     ConnectToServer();
   }
 
+  void SetVideoChunkSize()
+  {
+    video_chunk_size = ros_h264_streamer_private::_tcp_video_chunk_size;
+    full_frame_data_size = 90*video_chunk_size;
+  }
+
   void ConnectToServer()
   {
     delete socket;
@@ -344,7 +375,7 @@ struct H264ReceiverTCPClient : public H264ReceiverNetImpl
   void ReceiveData()
   {
     socket->async_receive(
-      boost::asio::buffer(chunk_data, ros_h264_streamer_private::_video_chunk_size),
+      boost::asio::buffer(chunk_data, video_chunk_size), 0,
       boost::bind(&H264ReceiverTCPClient::handle_receive, this,
         boost::asio::placeholders::error,
         boost::asio::placeholders::bytes_transferred));
@@ -410,12 +441,17 @@ public:
         net_impl = new H264ReceiverTCPClient(conf, nh);
       }
     }
-    net_impl->StartIOService();
   }
 
   ~H264ReceiverImpl()
   {
     delete net_impl;
+  }
+
+  void Init(H264Receiver::Config & conf)
+  {
+    net_impl->InitBuffers(conf);
+    net_impl->StartIOService();
   }
 
   bool getLatestImage(sensor_msgs::ImagePtr & img)
@@ -429,6 +465,7 @@ private:
 H264Receiver::H264Receiver(H264Receiver::Config & conf, ros::NodeHandle & nh)
 : impl(new H264ReceiverImpl(conf, nh))
 {
+  impl->Init(conf);
 }
 
 bool H264Receiver::getLatestImage(sensor_msgs::ImagePtr & img)
