@@ -52,6 +52,9 @@ target_link_libraries(testTCPClientReceiver ros_h264_streamer ${catkin_LIBRARIES
 add_executable(testStreamer test/testStreamer.cpp)
 target_link_libraries(testStreamer ros_h264_streamer ${catkin_LIBRARIES} boost_program_options)
 
+add_executable(testReceiver test/testReceiver.cpp)
+target_link_libraries(testReceiver ros_h264_streamer ${catkin_LIBRARIES} boost_program_options)
+
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
