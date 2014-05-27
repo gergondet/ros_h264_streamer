@@ -6,7 +6,10 @@ include_directories(${catkin_INCLUDE_DIRS})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-catkin_package()
+catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES ${PROJECT_NAME}
+)
 
 set(ros_h264_streamer_src
   src/h264_encoder.cpp
