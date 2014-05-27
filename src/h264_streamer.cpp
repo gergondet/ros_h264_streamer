@@ -16,10 +16,16 @@ using boost::asio::ip::tcp;
 namespace ros_h264_streamer
 {
 
+enum H264StreamerProtocol
+{
+  ChunkIDPlusData = 1,
+  FrameSizePlusData
+};
+
 struct H264StreamerNetImpl
 {
   H264StreamerNetImpl()
-  : io_service(), io_service_th(0), request_data(0), chunk_data_size(0), chunk_data(0)
+  : io_service(), io_service_th(0), request_data(0), chunk_data_size(0), chunk_data(0), protocol(ChunkIDPlusData)
   {
   }
 
@@ -62,19 +68,35 @@ struct H264StreamerNetImpl
 
   void HandleNewData(H264EncoderResult & res)
   {
-    int data_size = 0;
-    uint8_t chunkID = 0;
-    do
+    if(protocol == ChunkIDPlusData)
     {
-      CleanChunkData();
-      data_size = std::min(res.frame_size + 1, chunk_data_size );
-      chunk_data[0] = chunkID;
-      std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(chunk_data_size - 1)], data_size);
-      SendData(data_size);
-      chunkID++;
-      res.frame_size -= data_size;
+      int data_size = 0;
+      uint8_t chunkID = 0;
+      do
+      {
+        CleanChunkData();
+        data_size = std::min(res.frame_size, chunk_data_size - 1 );
+        chunk_data[0] = chunkID;
+        std::memcpy(&chunk_data[1], &res.frame_data[chunkID*(chunk_data_size - 1)], data_size);
+        SendData(data_size + 1);
+        chunkID++;
+        res.frame_size -= data_size;
+      }
+      while(res.frame_size > 0);
     }
-    while(data_size == chunk_data_size);
+    else
+    {
+      if(chunk_data_size < res.frame_size + sizeof(unsigned int))
+      {
+        delete[] chunk_data;
+        chunk_data_size = 2*res.frame_size + sizeof(int);
+        chunk_data = new uint8_t[chunk_data_size];
+      }
+      CleanChunkData();
+      std::memcpy(chunk_data, &res.frame_size, sizeof(int));
+      std::memcpy(&chunk_data[sizeof(int)], res.frame_data, res.frame_size);
+      SendData(res.frame_size + sizeof(int));
+    }
   }
 
   virtual void SendData(int frame_size) = 0;
@@ -87,6 +109,8 @@ struct H264StreamerNetImpl
   int chunk_data_size;
   unsigned char * chunk_data;
   void CleanChunkData() { memset(chunk_data, 0, chunk_data_size); }
+
+  H264StreamerProtocol protocol;
 };
 
 struct H264StreamerUDPServer : public H264StreamerNetImpl
@@ -334,7 +358,6 @@ public:
   H264StreamerImpl(H264Streamer::Config & conf, ros::NodeHandle & nh)
   : nh(nh), it(nh), conf(conf), net_impl(0), encoder(0)
   {
-    sub = it.subscribe(conf.camera_topic, 1, &H264StreamerImpl::imageCallback, this);
     if(conf.udp)
     {
       if(conf.server)
@@ -345,6 +368,7 @@ public:
       {
         net_impl = new H264StreamerUDPClient(conf.host, conf.port);
       }
+      net_impl->protocol = ChunkIDPlusData;
     }
     else
     {
@@ -356,6 +380,7 @@ public:
       {
         net_impl = new H264StreamerTCPClient(conf.host, conf.port);
       }
+      net_impl->protocol = FrameSizePlusData;
     }
   }
 
@@ -363,6 +388,7 @@ public:
   {
     net_impl->InitBuffers();
     net_impl->StartIOService();
+    sub = it.subscribe(conf.camera_topic, 1, &H264StreamerImpl::imageCallback, this);
   }
 
   ~H264StreamerImpl()
