@@ -18,10 +18,16 @@ using boost::asio::ip::tcp;
 namespace ros_h264_streamer
 {
 
+enum H264ReceiverProtocol
+{
+  ChunkIDPlusData = 1,
+  FrameSizePlusData
+};
+
 struct H264ReceiverNetImpl
 {
   H264ReceiverNetImpl(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : io_service(), io_service_th(0), request_data(0), video_chunk_size(0), chunk_data(0),
+  : io_service(), io_service_th(0), request_data(0), protocol(ChunkIDPlusData), video_chunk_size(0), chunk_data(0),
     frame_data_size(0), full_frame_data_size(0), frame_data(0),
     has_new_data(false), img(new sensor_msgs::Image),
     decoder(conf.width, conf.height),
@@ -63,40 +69,78 @@ struct H264ReceiverNetImpl
 
   virtual void SetVideoChunkSize() = 0;
 
+  virtual void ReceiveMissingData(size_t bytes_recvd, size_t missing_data_size) {}
+
   void StartIOService()
   {
     io_service_th = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
   }
 
+  void ResizeFrameData()
+  {
+    std::cerr << "[ros_h264_streamer] H264Receiver needs to re-allocate frame data" << std::endl;
+    uint8_t * old_frame_data = frame_data;
+    uint8_t * new_frame_data = new uint8_t[2*frame_data_size];
+    memcpy(new_frame_data, frame_data, full_frame_data_size);
+    full_frame_data_size = 2*frame_data_size;
+    frame_data = new_frame_data;
+    delete[] old_frame_data;
+  }
+
   void HandleVideoChunk(size_t bytes_recvd)
   {
-    uint8_t chunkID = chunk_data[0];
-    frame_data_size += bytes_recvd;
-    if(frame_data_size > full_frame_data_size)
+    bool decode_frame_data = false;
+    if(protocol == ChunkIDPlusData)
     {
-      std::cerr << "[ros_h264_streamer] H264Receiver needs to re-allocate frame data" << std::endl;
-      uint8_t * old_frame_data = frame_data;
-      uint8_t * new_frame_data = new uint8_t[2*frame_data_size];
-      memcpy(new_frame_data, frame_data, full_frame_data_size);
-      full_frame_data_size = 2*frame_data_size;
-      frame_data = new_frame_data;
-      delete[] old_frame_data;
+      uint8_t chunkID = chunk_data[0];
+      frame_data_size += bytes_recvd;
+      if(frame_data_size > full_frame_data_size)
+      {
+        ResizeFrameData();
+      }
+      if(chunkID*(video_chunk_size-1) + bytes_recvd - 1 < full_frame_data_size)
+      {
+        memcpy(&frame_data[chunkID*(video_chunk_size-1)], &chunk_data[1], bytes_recvd - 1);
+        if(bytes_recvd < video_chunk_size)
+        {
+          decode_frame_data = true;
+        }
+      }
+      else
+      {
+          frame_data_size = 0;
+          CleanFrameData();
+      }
+      CleanChunkData();
     }
-    memcpy(&frame_data[chunkID*(video_chunk_size-1)], &chunk_data[1], bytes_recvd - 1);
-    if(bytes_recvd < video_chunk_size)
+    else
+    {
+      memcpy(&frame_data_size, chunk_data, sizeof(int));
+      memcpy(frame_data, &chunk_data[sizeof(int)], bytes_recvd - sizeof(int));
+      CleanChunkData();
+      if(frame_data_size < 0 || bytes_recvd > frame_data_size + sizeof(int) || frame_data_size > full_frame_data_size)
+      {
+        CleanFrameData();
+        return;
+      }
+      if(bytes_recvd != frame_data_size + sizeof(int))
+      {
+        ReceiveMissingData(bytes_recvd, frame_data_size + sizeof(int) - bytes_recvd);
+      }
+      decode_frame_data = true;
+    }
+    if(decode_frame_data)
     {
       int data_decoded = decoder.decode(frame_data_size, frame_data, img);
-      has_new_data = true;
-      frame_data_size = 0;
-      CleanFrameData();
       if(data_decoded > 0 && publish)
       {
+        has_new_data = true;
         img->header.seq++;
         img->header.stamp = ros::Time::now();
         pub.publish(*img);
       }
+      CleanFrameData();
     }
-    CleanChunkData();
   }
 
   bool getLatestImage(sensor_msgs::ImagePtr & img_in)
@@ -114,6 +158,7 @@ struct H264ReceiverNetImpl
   char * request_data;
   void CleanRequestData() { memset(request_data, 0, ros_h264_streamer_private::_request_size); }
   unsigned char * chunk_data;
+  H264ReceiverProtocol protocol;
   int video_chunk_size;
   void CleanChunkData() { memset(chunk_data, 0, video_chunk_size); }
 
@@ -325,6 +370,22 @@ struct H264ReceiverTCPServer : public H264ReceiverNetImpl
     AcceptConnection();
   }
 
+  void ReceiveMissingData(size_t bytes_recvd, size_t missing_data_size)
+  {
+    if(socket)
+    {
+      size_t data_left = missing_data_size;
+      while(data_left > 0)
+      {
+        int nbytes_recvd = socket->read_some(boost::asio::buffer(chunk_data, std::min((size_t)video_chunk_size, data_left)));
+        memcpy(&frame_data[bytes_recvd-sizeof(int)], chunk_data, nbytes_recvd);
+        CleanChunkData();
+        data_left -= nbytes_recvd;
+        bytes_recvd += nbytes_recvd;
+      }
+    }
+  }
+
   void handle_receive(const boost::system::error_code & error, size_t bytes_recvd)
   {
     if(!error && bytes_recvd > 0)
@@ -381,6 +442,22 @@ struct H264ReceiverTCPClient : public H264ReceiverNetImpl
         boost::asio::placeholders::bytes_transferred));
   }
 
+  void ReceiveMissingData(size_t bytes_recvd, size_t missing_data_size)
+  {
+    if(socket)
+    {
+      size_t data_left = missing_data_size;
+      while(data_left > 0)
+      {
+        int nbytes_recvd = socket->read_some(boost::asio::buffer(chunk_data, std::min((size_t)video_chunk_size, data_left)));
+        memcpy(&frame_data[bytes_recvd-sizeof(int)], chunk_data, nbytes_recvd);
+        CleanChunkData();
+        data_left -= nbytes_recvd;
+        bytes_recvd += nbytes_recvd;
+      }
+    }
+  }
+
   void handle_connect(const boost::system::error_code & error)
   {
     if(!error)
@@ -429,6 +506,7 @@ public:
       {
         net_impl = new H264ReceiverUDPClient(conf, nh);
       }
+      net_impl->protocol = ChunkIDPlusData;
     }
     else
     {
@@ -440,6 +518,7 @@ public:
       {
         net_impl = new H264ReceiverTCPClient(conf, nh);
       }
+      net_impl->protocol = FrameSizePlusData;
     }
   }
 
