@@ -132,12 +132,15 @@ struct H264ReceiverNetImpl
     if(decode_frame_data)
     {
       int data_decoded = decoder.decode(frame_data_size, frame_data, img);
-      if(data_decoded > 0 && publish)
+      if(data_decoded > 0)
       {
         has_new_data = true;
-        img->header.seq++;
-        img->header.stamp = ros::Time::now();
-        pub.publish(*img);
+        if(publish)
+        {
+          img->header.seq++;
+          img->header.stamp = ros::Time::now();
+          pub.publish(*img);
+        }
       }
       CleanFrameData();
     }
@@ -149,7 +152,9 @@ struct H264ReceiverNetImpl
     {
       *img_in = *img;
       has_new_data = false;
+      return true;
     }
+    return false;
   }
 
   boost::asio::io_service io_service;
