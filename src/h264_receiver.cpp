@@ -132,6 +132,7 @@ struct H264ReceiverNetImpl
     if(decode_frame_data)
     {
       int data_decoded = decoder.decode(frame_data_size, frame_data, img);
+      frame_data_size = 0;
       if(data_decoded > 0)
       {
         has_new_data = true;
@@ -234,6 +235,7 @@ struct H264ReceiverUDPClient : public H264ReceiverNetImpl
 {
   H264ReceiverUDPClient(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : H264ReceiverNetImpl(conf, nh),
+    socket(0), server_endpoint(), client_endpoint(),
     timeout_timer(io_service, boost::posix_time::seconds(1))
   {
     udp::resolver resolver(io_service);
