@@ -40,9 +40,23 @@ int main(int argc, char * argv[])
 
   ros_h264_streamer::H264Receiver receiver(conf, nh);
 
+  ros::Time tin = ros::Time::now();
+  sensor_msgs::ImagePtr img(new sensor_msgs::Image);
+  unsigned int frames_in = 0;
   while(ros::ok())
   {
-    ros::spin();
+    if(receiver.getLatestImage(img))
+    {
+      frames_in++;
+      if(frames_in == 10)
+      {
+        ros::Time tout = ros::Time::now();
+        ros::Duration dt = tout - tin;
+        tin = tout;
+        std::cout << "\rReceiving at " << 1e10/dt.toNSec() << "Hz" << std::flush;
+        frames_in = 0;
+      }
+    }
   }
 
   return 0;
