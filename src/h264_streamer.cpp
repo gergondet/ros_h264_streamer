@@ -356,7 +356,7 @@ struct H264StreamerImpl
 {
 public:
   H264StreamerImpl(H264Streamer::Config & conf, ros::NodeHandle & nh)
-  : nh(nh), it(nh), conf(conf), net_impl(0), encoder(0)
+  : nh(nh), it(nh), conf(conf), net_impl(0), encoder(0), skip_frame(false)
   {
     if(conf.udp)
     {
@@ -402,10 +402,18 @@ public:
   {
     if(!encoder)
     {
-      encoder = new H264Encoder(msg->width, msg->height, 30, msg->encoding);
+      encoder = new H264Encoder(msg->width, msg->height, 15, msg->encoding);
     }
-    H264EncoderResult res = encoder->encode(msg);
-    net_impl->HandleNewData(res);
+    if(skip_frame)
+    {
+      skip_frame = false;
+    }
+    else
+    {
+      H264EncoderResult res = encoder->encode(msg);
+      net_impl->HandleNewData(res);
+      skip_frame = true;
+    }
   }
 private:
   ros::NodeHandle & nh;
@@ -416,6 +424,7 @@ private:
   H264StreamerNetImpl * net_impl;
 
   H264Encoder * encoder;
+  bool skip_frame;
 };
 
 H264Streamer::H264Streamer(H264Streamer::Config & conf, ros::NodeHandle & nh)
