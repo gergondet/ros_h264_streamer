@@ -25,30 +25,6 @@ target_link_libraries(ros_h264_streamer ${catkin_LIBRARIES} x264 avcodec avutil 
 add_executable(testEncoderDecoder test/testEncoderDecoder.cpp)
 target_link_libraries(testEncoderDecoder ros_h264_streamer ${catkin_LIBRARIES})
 
-add_executable(testUDPServerStreamer test/testUDPServerStreamer.cpp)
-target_link_libraries(testUDPServerStreamer ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testUDPClientStreamer test/testUDPClientStreamer.cpp)
-target_link_libraries(testUDPClientStreamer ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testUDPServerReceiver test/testUDPServerReceiver.cpp)
-target_link_libraries(testUDPServerReceiver ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testUDPClientReceiver test/testUDPClientReceiver.cpp)
-target_link_libraries(testUDPClientReceiver ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testTCPServerStreamer test/testTCPServerStreamer.cpp)
-target_link_libraries(testTCPServerStreamer ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testTCPClientStreamer test/testTCPClientStreamer.cpp)
-target_link_libraries(testTCPClientStreamer ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testTCPServerReceiver test/testTCPServerReceiver.cpp)
-target_link_libraries(testTCPServerReceiver ros_h264_streamer ${catkin_LIBRARIES})
-
-add_executable(testTCPClientReceiver test/testTCPClientReceiver.cpp)
-target_link_libraries(testTCPClientReceiver ros_h264_streamer ${catkin_LIBRARIES})
-
 add_executable(testStreamer test/testStreamer.cpp)
 target_link_libraries(testStreamer ros_h264_streamer ${catkin_LIBRARIES} boost_program_options)
 
