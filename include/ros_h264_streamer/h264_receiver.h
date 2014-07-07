@@ -1,9 +1,13 @@
 #ifndef _H_ROS_H264_RECEIVER_H_
 #define _H_ROS_H264_RECEIVER_H_
 
+#include <ros_h264_streamer/h264_api.h>
+
 #include <string>
 #include <boost/shared_ptr.hpp>
+#ifndef WIN32
 #include <ros/ros.h>
+#endif
 #include <sensor_msgs/Image.h>
 
 namespace ros_h264_streamer
@@ -12,7 +16,7 @@ namespace ros_h264_streamer
 struct H264ReceiverImpl;
 
 
-class H264Receiver
+class H264_API H264Receiver
 {
 public:
   struct Config
@@ -35,7 +39,11 @@ public:
     std::string frame_id;
   };
 
+  #ifndef WIN32
   H264Receiver(H264Receiver::Config & conf, ros::NodeHandle & nh);
+  #else
+  H264Receiver(H264Receiver::Config & conf);
+  #endif
 
   /* Returns true if we are returning a new image compared to last call */
   bool getLatestImage(sensor_msgs::ImagePtr & img);

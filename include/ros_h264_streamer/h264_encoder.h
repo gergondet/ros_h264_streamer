@@ -1,6 +1,7 @@
 #ifndef _H_ROS_H264_ENCODER_H_
 #define _H_ROS_H264_ENCODER_H_
 
+#include <ros_h264_streamer/h264_api.h>
 #include <sensor_msgs/Image.h>
 #include <stdint.h>
 
@@ -9,7 +10,7 @@ struct x264_param_t;
 namespace ros_h264_streamer
 {
 
-struct H264EncoderResult
+struct H264_API H264EncoderResult
 {
   H264EncoderResult() : frame_size(0), frame_data(0) {}
 
@@ -19,7 +20,7 @@ struct H264EncoderResult
 
 struct H264EncoderImpl;
 
-class H264Encoder
+class H264_API H264Encoder
 {
 public:
   H264Encoder(int width, int height, int fps, const std::string & encoding);

@@ -103,7 +103,7 @@ H264Decoder::H264Decoder(int width, int height)
 
 int H264Decoder::decode(int frame_size, uint8_t * frame_data, sensor_msgs::ImagePtr & out)
 {
-  impl->decode(frame_size, frame_data, out);
+  return impl->decode(frame_size, frame_data, out);
 }
 
 } // namespace ros_h264_streamer

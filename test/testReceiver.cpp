@@ -2,11 +2,14 @@
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
+#include <iomanip>
 
 int main(int argc, char * argv[])
 {
+  #ifndef WIN32
   ros::init(argc, argv, "ros_h264_streamer_test_receiver");
   ros::NodeHandle nh;
+  #endif
 
   ros_h264_streamer::H264Receiver::Config conf;
   conf.width = 640; conf.height = 480;
@@ -38,8 +41,13 @@ int main(int argc, char * argv[])
     return 1;
   }
 
+  #ifndef WIN32
   ros_h264_streamer::H264Receiver receiver(conf, nh);
+  #else
+  ros_h264_streamer::H264Receiver receiver(conf);
+  #endif
 
+  #ifndef WIN32
   ros::Time tin = ros::Time::now();
   sensor_msgs::ImagePtr img(new sensor_msgs::Image);
   unsigned int frames_in = 0;
@@ -58,6 +66,30 @@ int main(int argc, char * argv[])
       }
     }
   }
+  #else
+  sensor_msgs::ImagePtr img(new sensor_msgs::Image);
+  long long ptick = 0;
+  long long tick = 0;
+  long long qPerfF = 0;
+  QueryPerformanceFrequency((LARGE_INTEGER*)&qPerfF);
+  double f = 0;
+  unsigned int fc = 0;
+  while(1)
+  {
+    if(receiver.getLatestImage(img))
+    {
+        if(fc == 0)
+        {
+            QueryPerformanceCounter((LARGE_INTEGER*)&tick);
+            f = 10*(double)qPerfF/((double)tick - (double)ptick);
+            std::cout << "\rCurrent frequency: " << f << "Hz" << std::flush;
+            ptick = tick;
+        }
+        ++fc;
+        if(fc == 10) fc = 0;
+    }
+  }
+  #endif
 
   return 0;
 }

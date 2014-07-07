@@ -5,10 +5,16 @@
 
 #include "private/net_buffer_size.h"
 
-#include <ros/ros.h>
-
 #include <ros_h264_streamer/h264_decoder.h>
+
+#ifndef WIN32
 #include <image_transport/image_transport.h>
+#else
+void sleep(unsigned int sec)
+{
+  Sleep(1000*sec);
+}
+#endif
 
 #include "private/net_buffer_size.h"
 
@@ -26,12 +32,18 @@ enum H264ReceiverProtocol
 
 struct H264ReceiverNetImpl
 {
+  #ifndef WIN32
   H264ReceiverNetImpl(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : io_service(), io_service_th(0), request_data(0), protocol(ChunkIDPlusData), video_chunk_size(0), chunk_data(0),
+  #else
+  H264ReceiverNetImpl(H264Receiver::Config & conf)
+  #endif
+  : io_service(), io_service_th(0), stop_io_service(false), request_data(0), protocol(ChunkIDPlusData), video_chunk_size(0), chunk_data(0),
     frame_data_size(0), full_frame_data_size(0), frame_data(0),
     has_new_data(false), img(new sensor_msgs::Image),
-    decoder(conf.width, conf.height),
-    publish(conf.publish), it(nh), pub()
+    decoder(conf.width, conf.height)
+    #ifndef WIN32
+    , publish(conf.publish), it(nh), pub()
+    #endif
   {
   }
 
@@ -46,12 +58,14 @@ struct H264ReceiverNetImpl
     CleanChunkData();
     CleanFrameData();
 
+    #ifndef WIN32
     if(publish)
     {
       img->header.seq = 0;
       img->header.frame_id = conf.frame_id;
       pub = it.advertise(conf.publish_topic, 1);
     }
+    #endif
   }
 
   ~H264ReceiverNetImpl()
@@ -71,9 +85,18 @@ struct H264ReceiverNetImpl
 
   virtual void ReceiveMissingData(size_t bytes_recvd, size_t missing_data_size) {}
 
+  void IOServiceThread()
+  {
+      while(!stop_io_service)
+      {
+          io_service.run();
+          io_service.reset();
+      }
+  }
+
   void StartIOService()
   {
-    io_service_th = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
+      io_service_th = new boost::thread(boost::bind(&H264ReceiverNetImpl::IOServiceThread, this));
   }
 
   void ResizeFrameData()
@@ -136,12 +159,14 @@ struct H264ReceiverNetImpl
       if(data_decoded > 0)
       {
         has_new_data = true;
+        #ifndef WIN32
         if(publish)
         {
           img->header.seq++;
           img->header.stamp = ros::Time::now();
           pub.publish(*img);
         }
+        #endif
       }
       CleanFrameData();
     }
@@ -160,6 +185,7 @@ struct H264ReceiverNetImpl
 
   boost::asio::io_service io_service;
   boost::thread * io_service_th;
+  bool stop_io_service;
 
   char * request_data;
   void CleanRequestData() { memset(request_data, 0, ros_h264_streamer_private::_request_size); }
@@ -176,15 +202,22 @@ struct H264ReceiverNetImpl
   sensor_msgs::ImagePtr img;
   H264Decoder decoder;
 
+  #ifndef WIN32
   bool publish;
   image_transport::ImageTransport it;
   image_transport::Publisher pub;
+  #endif
 };
 
 struct H264ReceiverUDPServer : public H264ReceiverNetImpl
 {
+  #ifndef WIN32
   H264ReceiverUDPServer(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : H264ReceiverNetImpl(conf, nh),
+  #else
+  H264ReceiverUDPServer(H264Receiver::Config & conf)
+  : H264ReceiverNetImpl(conf),
+  #endif
     socket(0), client_endpoint()
   {
     socket = new udp::socket(io_service);
@@ -233,8 +266,13 @@ private:
 
 struct H264ReceiverUDPClient : public H264ReceiverNetImpl
 {
+  #ifndef WIN32
   H264ReceiverUDPClient(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : H264ReceiverNetImpl(conf, nh),
+  #else
+  H264ReceiverUDPClient(H264Receiver::Config & conf)
+  : H264ReceiverNetImpl(conf),
+  #endif
     socket(0), server_endpoint(), client_endpoint(),
     timeout_timer(io_service, boost::posix_time::seconds(1))
   {
@@ -311,6 +349,7 @@ struct H264ReceiverUDPClient : public H264ReceiverNetImpl
   {
     if(error != boost::asio::error::operation_aborted)
     {
+      std::cerr << "[ros_h264_streamer] Video reception timeout, sending another request" << std::endl;
       SendVideoRequest();
     }
   }
@@ -324,8 +363,13 @@ private:
 
 struct H264ReceiverTCPServer : public H264ReceiverNetImpl
 {
+  #ifndef WIN32
   H264ReceiverTCPServer(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : H264ReceiverNetImpl(conf, nh),
+  #else
+  H264ReceiverTCPServer(H264Receiver::Config & conf)
+  : H264ReceiverNetImpl(conf),
+  #endif
     socket(0), acceptor(io_service, tcp::endpoint(tcp::v4(), conf.port))
   {
     AcceptConnection();
@@ -413,8 +457,13 @@ private:
 
 struct H264ReceiverTCPClient : public H264ReceiverNetImpl
 {
+  #ifndef WIN32
   H264ReceiverTCPClient(H264Receiver::Config & conf, ros::NodeHandle & nh)
   : H264ReceiverNetImpl(conf, nh), socket(0)
+  #else
+  H264ReceiverTCPClient(H264Receiver::Config & conf)
+  : H264ReceiverNetImpl(conf), socket(0)
+  #endif
   {
     tcp::resolver resolver(io_service);
     std::stringstream ss;
@@ -500,18 +549,30 @@ private:
 struct H264ReceiverImpl
 {
 public:
+  #ifndef WIN32
   H264ReceiverImpl(H264Receiver::Config & conf, ros::NodeHandle & nh)
+  #else
+  H264ReceiverImpl(H264Receiver::Config & conf)
+  #endif
   : net_impl(0)
   {
     if(conf.udp)
     {
       if(conf.server)
       {
+        #ifndef WIN32
         net_impl = new H264ReceiverUDPServer(conf, nh);
+        #else
+        net_impl = new H264ReceiverUDPServer(conf);
+        #endif
       }
       else
       {
+        #ifndef WIN32
         net_impl = new H264ReceiverUDPClient(conf, nh);
+        #else
+        net_impl = new H264ReceiverUDPClient(conf);
+        #endif
       }
       net_impl->protocol = ChunkIDPlusData;
     }
@@ -519,11 +580,19 @@ public:
     {
       if(conf.server)
       {
+        #ifndef WIN32
         net_impl = new H264ReceiverTCPServer(conf, nh);
+        #else
+        net_impl = new H264ReceiverTCPServer(conf);
+        #endif
       }
       else
       {
+        #ifndef WIN32
         net_impl = new H264ReceiverTCPClient(conf, nh);
+        #else
+        net_impl = new H264ReceiverTCPClient(conf);
+        #endif
       }
       net_impl->protocol = FrameSizePlusData;
     }
@@ -548,8 +617,13 @@ private:
   H264ReceiverNetImpl * net_impl;
 };
 
+#ifndef WIN32
 H264Receiver::H264Receiver(H264Receiver::Config & conf, ros::NodeHandle & nh)
 : impl(new H264ReceiverImpl(conf, nh))
+#else
+H264Receiver::H264Receiver(H264Receiver::Config & conf)
+: impl(new H264ReceiverImpl(conf))
+#endif
 {
   impl->Init(conf);
 }
