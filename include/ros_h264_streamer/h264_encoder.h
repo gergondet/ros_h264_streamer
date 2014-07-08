@@ -23,7 +23,8 @@ struct H264EncoderImpl;
 class H264_API H264Encoder
 {
 public:
-  H264Encoder(int width, int height, int fps, const std::string & encoding);
+  /* FPS is given as a fraction */
+  H264Encoder(int width, int height, int fps_num, int fps_den, const std::string & encoding);
 
   H264EncoderResult encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts = 0);
 private:

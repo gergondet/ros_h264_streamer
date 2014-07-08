@@ -21,7 +21,7 @@ int main(int argc, char * argv[])
 
   std::cout << "Image loaded, image size: " << msg->width << "x" << msg->height << ", encoding: " << msg->encoding << std::endl;
 
-  ros_h264_streamer::H264Encoder encoder(msg->width, msg->height, 30, msg->encoding);
+  ros_h264_streamer::H264Encoder encoder(msg->width, msg->height, 30, 1, msg->encoding);
   ros::Time before_encoding = ros::Time::now();
   ros_h264_streamer::H264EncoderResult res = encoder.encode(msg);
   ros::Time after_encoding = ros::Time::now();

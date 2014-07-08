@@ -13,8 +13,8 @@ namespace ros_h264_streamer
 struct H264EncoderImpl
 {
 public:
-  H264EncoderImpl(int width, int height, int fps, const std::string & encoding)
-  : m_width(width), m_height(height), m_fps(fps), encoding(encoding)
+  H264EncoderImpl(int width, int height, int fps_num, int fps_den, const std::string & encoding)
+  : m_width(width), m_height(height), m_fps_num(fps_num), m_fps_den(fps_den), encoding(encoding)
   {
     m_stride = width*3;
 
@@ -23,10 +23,10 @@ public:
     m_param.i_threads = 1;
     m_param.i_width = width;
     m_param.i_height = height;
-    m_param.i_fps_num = fps;
-    m_param.i_fps_den = 1;
+    m_param.i_fps_num = m_fps_num;
+    m_param.i_fps_den = m_fps_den;
     // Intra refres:
-    m_param.i_keyint_max = fps;
+    m_param.i_keyint_max = m_fps_num;
     m_param.b_intra_refresh = 1;
     //Rate control:
     m_param.rc.i_rc_method = X264_RC_CRF;
@@ -98,7 +98,8 @@ private:
 
   int m_width;
   int m_height;
-  int m_fps;
+  int m_fps_num;
+  int m_fps_den;
   std::string encoding;
   int m_stride;
 
@@ -109,8 +110,8 @@ private:
   x264_picture_t m_pic_in, m_pic_out;
 };
 
-H264Encoder::H264Encoder(int width, int height, int fps, const std::string & encoding)
-: impl(new H264EncoderImpl(width, height, fps, encoding))
+H264Encoder::H264Encoder(int width, int height, int fps_num, int fps_den, const std::string & encoding)
+: impl(new H264EncoderImpl(width, height, fps_num, fps_den, encoding))
 {
 }
 

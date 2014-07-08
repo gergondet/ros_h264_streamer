@@ -22,7 +22,9 @@ int main(int argc, char * argv[])
     ("server,s", po::value<bool>(&conf.server)->default_value(false), "is this a server?")
     ("port,p", po::value<short>(&conf.port)->default_value(10000), "connection port")
     ("host,h", po::value<std::string>(&conf.host)->default_value("127.0.0.1"), "connection host (irrelevant for server mode")
-    ("topic,t", po::value<std::string>(&conf.camera_topic)->default_value("/camera/rgb/image_raw"), "camera topic to stream");
+    ("topic,t", po::value<std::string>(&conf.camera_topic)->default_value("/camera/rgb/image_raw"), "camera topic to stream")
+    ("fps_num", po::value<int>(&conf.fps_num)->default_value(30), "FPS numerator value, will be also interpreted as camera real fps")
+    ("fps_den", po::value<int>(&conf.fps_den)->default_value(1), "FPS denominator value, will be interpreted as sub-sampling denominator");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
