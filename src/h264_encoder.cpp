@@ -19,7 +19,7 @@ public:
     m_stride = width*3;
 
     /* Parametrize x264 for real-time */
-    x264_param_default_preset(&m_param, "ultrafast", "zerolatency");
+    x264_param_default_preset(&m_param, "medium", "zerolatency");
     m_param.i_threads = 1;
     m_param.i_width = width;
     m_param.i_height = height;
