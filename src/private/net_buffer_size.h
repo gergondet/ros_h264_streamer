@@ -4,7 +4,7 @@
 namespace ros_h264_streamer_private
 {
 
-static int _udp_video_chunk_size = 32769;
+static int _udp_video_chunk_size = 1000;
 static int _tcp_video_chunk_size = 256;
 static int _request_size = 1024;
 
