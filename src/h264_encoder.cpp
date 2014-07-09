@@ -19,23 +19,24 @@ public:
     m_stride = width*3;
 
     /* Parametrize x264 for real-time */
-    x264_param_default_preset(&m_param, "medium", "zerolatency");
+    x264_param_default_preset(&m_param, "veryfast", "animation/zerolatency");
     m_param.i_threads = 1;
     m_param.i_width = width;
     m_param.i_height = height;
     m_param.i_fps_num = m_fps_num;
     m_param.i_fps_den = m_fps_den;
     // Intra refres:
-    m_param.i_keyint_max = m_fps_num;
+    m_param.i_keyint_max = m_fps_num/(4*m_fps_den);
+    m_param.i_frame_reference = 1;
     m_param.b_intra_refresh = 1;
     //Rate control:
     m_param.rc.i_rc_method = X264_RC_CRF;
-    m_param.rc.f_rf_constant = 25;
-    m_param.rc.f_rf_constant_max = 35;
+    m_param.rc.f_rf_constant = 38;
+    m_param.rc.f_rf_constant_max = 100;
     //For streaming:
     m_param.b_repeat_headers = 1;
     m_param.b_annexb = 1;
-    x264_param_apply_profile(&m_param, "baseline");
+    //x264_param_apply_profile(&m_param, "baseline");
 
     Init(&m_param);
   }
