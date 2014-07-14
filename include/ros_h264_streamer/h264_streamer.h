@@ -20,13 +20,14 @@ public:
     : udp(true), server(true),
       port(10000), host("127.0.0.1"),
       camera_topic("/camera/rgb/image_raw"),
-      fps_num(30), fps_den(1)
+      quality(28), fps_num(30), fps_den(1)
     {}
     bool udp;
     bool server;
     short port;
     std::string host;
     std::string camera_topic;
+    int quality;
     int fps_num;
     int fps_den;
   };

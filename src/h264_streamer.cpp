@@ -402,7 +402,7 @@ public:
   {
     if(!encoder)
     {
-      encoder = new H264Encoder(msg->width, msg->height, conf.fps_num, conf.fps_den, msg->encoding);
+      encoder = new H264Encoder(msg->width, msg->height, conf.quality, conf.fps_num, conf.fps_den, msg->encoding);
     }
     if(skip_frame == 0)
     {

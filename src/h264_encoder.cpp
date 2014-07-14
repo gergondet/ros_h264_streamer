@@ -13,7 +13,7 @@ namespace ros_h264_streamer
 struct H264EncoderImpl
 {
 public:
-  H264EncoderImpl(int width, int height, int fps_num, int fps_den, const std::string & encoding)
+  H264EncoderImpl(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding)
   : m_width(width), m_height(height), m_fps_num(fps_num), m_fps_den(fps_den), encoding(encoding)
   {
     m_stride = width*3;
@@ -31,7 +31,7 @@ public:
     m_param.b_intra_refresh = 1;
     //Rate control:
     m_param.rc.i_rc_method = X264_RC_CRF;
-    m_param.rc.f_rf_constant = 38;
+    m_param.rc.f_rf_constant = quality_level;
     m_param.rc.f_rf_constant_max = 100;
     //For streaming:
     m_param.b_repeat_headers = 1;
@@ -111,8 +111,8 @@ private:
   x264_picture_t m_pic_in, m_pic_out;
 };
 
-H264Encoder::H264Encoder(int width, int height, int fps_num, int fps_den, const std::string & encoding)
-: impl(new H264EncoderImpl(width, height, fps_num, fps_den, encoding))
+H264Encoder::H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding)
+: impl(new H264EncoderImpl(width, height, quality_level, fps_num, fps_den, encoding))
 {
 }
 
