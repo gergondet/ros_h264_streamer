@@ -264,6 +264,12 @@ struct H264StreamerTCPServer : public H264StreamerNetImpl
     if(!error)
     {
       socket = socket_in;
+      boost::asio::ip::tcp::no_delay option(true);
+      socket->set_option(option);
+    }
+    else
+    {
+      socket = 0;
     }
     AcceptConnection();
   }
@@ -272,7 +278,11 @@ struct H264StreamerTCPServer : public H264StreamerNetImpl
   {
     if(error)
     {
-      socket->close();
+      if(socket)
+      {
+        socket->cancel();
+        socket->close();
+      }
       delete socket;
       socket = 0;
     }
@@ -326,6 +336,8 @@ struct H264StreamerTCPClient : public H264StreamerNetImpl
   {
     if(!error)
     {
+      boost::asio::ip::tcp::no_delay option(true);
+      socket->set_option(option);
       ready = true;
     }
     else
@@ -380,7 +392,7 @@ public:
       {
         net_impl = new H264StreamerTCPClient(conf.host, conf.port);
       }
-      net_impl->protocol = FrameSizePlusData;
+      net_impl->protocol = ChunkIDPlusData;//FrameSizePlusData;
     }
   }
 
