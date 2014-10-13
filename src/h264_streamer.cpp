@@ -380,7 +380,7 @@ public:
       {
         net_impl = new H264StreamerTCPClient(conf.host, conf.port);
       }
-      net_impl->protocol = FrameSizePlusData;
+      net_impl->protocol = ChunkIDPlusData;
     }
   }
 
