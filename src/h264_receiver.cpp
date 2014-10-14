@@ -487,12 +487,12 @@ struct H264ReceiverTCPClient : public H264ReceiverNetImpl
 {
   #ifndef WIN32
   H264ReceiverTCPClient(H264Receiver::Config & conf, ros::NodeHandle & nh)
-  : H264ReceiverNetImpl(conf, nh), socket(0)
+  : H264ReceiverNetImpl(conf, nh), socket(0),
   #else
   H264ReceiverTCPClient(H264Receiver::Config & conf)
   : H264ReceiverNetImpl(conf), socket(0),
-    timeout_timer(io_service, boost::posix_time::seconds(1))
   #endif
+    timeout_timer(io_service, boost::posix_time::seconds(1))
   {
     tcp::resolver resolver(io_service);
     std::stringstream ss;
