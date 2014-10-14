@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 struct x264_param_t;
+struct x264_t;
 
 namespace ros_h264_streamer
 {
@@ -28,6 +29,16 @@ public:
   H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding);
 
   H264EncoderResult encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts = 0);
+
+  x264_param_t * GetParameters();
+
+  x264_t * GetEncoder();
+
+  /* Actual type: x264_picture_t */
+  void * GetPicIn();
+
+  /* Actual type: x264_picture_t */
+  void * GetPicOut();
 private:
   boost::shared_ptr<H264EncoderImpl> impl;
 };

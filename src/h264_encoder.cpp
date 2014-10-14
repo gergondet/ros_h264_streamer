@@ -65,6 +65,25 @@ public:
     return res;
   }
 
+  x264_param_t * GetParameters()
+  {
+    return &m_param;
+  }
+
+  x264_t * GetEncoder()
+  {
+    return m_encoder;
+  }
+
+  void * GetPicIn()
+  {
+    return &m_pic_in;
+  }
+
+  void * GetPicOut()
+  {
+    return &m_pic_out;
+  }
 private:
   void Init(x264_param_t * param)
   {
@@ -119,6 +138,26 @@ H264Encoder::H264Encoder(int width, int height, int quality_level, int fps_num, 
 H264EncoderResult H264Encoder::encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts)
 {
   return impl->encode(img, pts);
+}
+
+x264_param_t * H264Encoder::GetParameters()
+{
+  return impl->GetParameters();
+}
+
+x264_t * H264Encoder::GetEncoder()
+{
+  return impl->GetEncoder();
+}
+
+void * H264Encoder::GetPicIn()
+{
+  return impl->GetPicIn();
+}
+
+void * H264Encoder::GetPicOut()
+{
+  return impl->GetPicOut();
 }
 
 } // namespace ros_h264_streamer
