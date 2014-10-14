@@ -26,7 +26,7 @@ class H264_API H264Encoder
 public:
   /* Quality can scale from 1 to 100, 1 being (very) high-quality, 100 being (very) low */
   /* FPS is given as a fraction */
-  H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding);
+  H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding, bool streaming = true);
 
   H264EncoderResult encode(const sensor_msgs::ImageConstPtr & img, uint64_t pts = 0);
 

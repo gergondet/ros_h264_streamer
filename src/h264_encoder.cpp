@@ -13,7 +13,7 @@ namespace ros_h264_streamer
 struct H264EncoderImpl
 {
 public:
-  H264EncoderImpl(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding)
+  H264EncoderImpl(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding, bool streaming)
   : m_width(width), m_height(height), m_fps_num(fps_num), m_fps_den(fps_den), encoding(encoding)
   {
     m_stride = width*3;
@@ -33,10 +33,28 @@ public:
     m_param.rc.i_rc_method = X264_RC_CRF;
     m_param.rc.f_rf_constant = quality_level;
     m_param.rc.f_rf_constant_max = 100;
-    //For streaming:
-    m_param.b_repeat_headers = 1;
-    m_param.b_annexb = 1;
-    //x264_param_apply_profile(&m_param, "baseline");
+
+    if(streaming)
+    {
+      //For streaming:
+      m_param.b_repeat_headers = 1;
+      m_param.b_annexb = 1;
+    }
+    else
+    {
+      // Specific for video encoding
+      m_param.b_vfr_input = 1;
+      m_param.i_timebase_num = m_fps_den;
+      m_param.i_timebase_den = m_fps_num;
+      m_param.vui.i_sar_width  = 1;
+      m_param.vui.i_sar_height = 1;
+      m_param.i_frame_total = 0;
+
+      m_param.b_intra_refresh = 0;
+      m_param.b_repeat_headers = 0;
+      m_param.b_annexb = 0;
+      m_param.i_csp = X264_CSP_I420;
+    }
 
     Init(&m_param);
   }
@@ -130,8 +148,8 @@ private:
   x264_picture_t m_pic_in, m_pic_out;
 };
 
-H264Encoder::H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding)
-: impl(new H264EncoderImpl(width, height, quality_level, fps_num, fps_den, encoding))
+H264Encoder::H264Encoder(int width, int height, int quality_level, int fps_num, int fps_den, const std::string & encoding, bool streaming)
+: impl(new H264EncoderImpl(width, height, quality_level, fps_num, fps_den, encoding, streaming))
 {
 }
 

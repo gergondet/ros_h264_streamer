@@ -20,11 +20,16 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(catkin_FOUND)
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME}
-  DEPENDS roscpp image_transport
-)
+  catkin_package(
+    INCLUDE_DIRS include
+    LIBRARIES ${PROJECT_NAME}
+    DEPENDS roscpp image_transport
+  )
+  find_package(dynamic_graph_bridge_msgs)
+    if(${dynamic_graph_bridge_msgs_FOUND})
+      include_directories(${dynamic_graph_bridge_msgs_INCLUDE_DIRS})
+      add_definitions("-DHAS_DGBRIDGE_MSGS")
+    endif()
 endif()
 
 if(NOT WIN32)
@@ -52,6 +57,9 @@ target_link_libraries(testEncoderDecoder ros_h264_streamer ${catkin_LIBRARIES})
 #Obviously streamer relies way too much on ROS
 add_executable(testStreamer test/testStreamer.cpp)
 target_link_libraries(testStreamer ros_h264_streamer ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+#Idem for mkv_recorder
+add_executable(mkv_recorder src/utils/mkv_recorder.cpp src/utils/output/matroska_ebml.c src/utils/output/matroska.c)
+target_link_libraries(mkv_recorder ros_h264_streamer ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 endif()
 
 add_executable(testReceiver test/testReceiver.cpp)
