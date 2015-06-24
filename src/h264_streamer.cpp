@@ -38,6 +38,10 @@ struct H264StreamerNetImpl
     CleanChunkData();
   }
 
+  virtual void StartNetworking()
+  {
+  }
+
   ~H264StreamerNetImpl()
   {
     io_service.stop();
@@ -118,20 +122,18 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
   H264StreamerUDPServer(short port)
   : socket(0), has_client(false), client_endpoint()
   {
-    socket = new udp::socket(io_service);
-    socket->open(udp::v4());
-    socket->bind(udp::endpoint(udp::v4(), port));
-    socket->async_receive_from(
-      boost::asio::buffer(request_data, ros_h264_streamer_private::_request_size), request_endpoint,
-      boost::bind(&H264StreamerUDPServer::handle_receive_from, this,
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
+    socket = new udp::socket(io_service, udp::endpoint(udp::v4(), port));
   }
 
   ~H264StreamerUDPServer()
   {
     socket->close();
     delete socket;
+  }
+
+  virtual void StartNetworking()
+  {
+    ReceiveData();
   }
 
   void SetChunkDataSize()
@@ -155,6 +157,15 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
     }
   }
 
+  void ReceiveData()
+  {
+    socket->async_receive_from(
+      boost::asio::buffer(request_data, ros_h264_streamer_private::_request_size), request_endpoint,
+      boost::bind(&H264StreamerUDPServer::handle_receive_from, this,
+        boost::asio::placeholders::error,
+        boost::asio::placeholders::bytes_transferred));
+  }
+
   void handle_receive_from(const boost::system::error_code & error, size_t bytes_recvd)
   {
     if(!error && bytes_recvd > 0)
@@ -166,11 +177,7 @@ struct H264StreamerUDPServer : public H264StreamerNetImpl
     {
       std::cerr << "[ros_h264_streamer] H264Streamer UDP server got the error while receiving data: " << std::endl << error.message() << std::endl;
     }
-    socket->async_receive_from(
-      boost::asio::buffer(request_data, ros_h264_streamer_private::_request_size), request_endpoint,
-      boost::bind(&H264StreamerUDPServer::handle_receive_from, this,
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
+    ReceiveData();
   }
 
 private:
@@ -400,6 +407,7 @@ public:
   {
     net_impl->InitBuffers();
     net_impl->StartIOService();
+    net_impl->StartNetworking();
     sub = it.subscribe(conf.camera_topic, 1, &H264StreamerImpl::imageCallback, this);
   }
 
